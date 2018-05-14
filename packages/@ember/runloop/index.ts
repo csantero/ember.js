@@ -1,7 +1,7 @@
 import { assert, deprecate, isTesting } from '@ember/debug';
+import Backburner from 'backburner';
 import { onErrorTarget } from 'ember-error-handling';
 import { beginPropertyChanges, endPropertyChanges } from 'ember-metal';
-import Backburner from 'backburner';
 
 let currentRunLoop = null;
 export function getCurrentRunLoop() {
