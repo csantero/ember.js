@@ -4,7 +4,7 @@
 
 import { assert } from '@ember/debug';
 import { DEBUG } from '@glimmer/env';
-import { descriptorFor, meta as metaFor, peekMeta, UNDEFINED } from './meta';
+import { descriptorFor, Meta, meta as metaFor, peekMeta, UNDEFINED } from './meta';
 import { overrideChains } from './property_events';
 
 // ..........................................................
@@ -19,6 +19,9 @@ import { overrideChains } from './property_events';
   @private
 */
 export class Descriptor {
+  readonly isDescriptor: boolean;
+  readonly enumerable: boolean;
+
   constructor() {
     this.isDescriptor = true;
     this.enumerable = true;
@@ -29,8 +32,8 @@ export class Descriptor {
 // DEFINING PROPERTIES API
 //
 
-export function MANDATORY_SETTER_FUNCTION(name) {
-  function SETTER_FUNCTION(value) {
+export function MANDATORY_SETTER_FUNCTION(name: string) {
+  function SETTER_FUNCTION<T extends object>(this: T, value: keyof T) {
     let m = peekMeta(this);
     if (!m.isInitialized(this)) {
       m.writeValues(name, value);
@@ -128,7 +131,13 @@ function DESCRIPTOR_GETTER_FUNCTION(name, descriptor) {
   @param {*} [data] something other than a descriptor, that will
     become the explicit value of this property.
 */
-export function defineProperty(obj, keyName, desc, data, meta) {
+export function defineProperty<T, K extends keyof T, V>(
+  obj: T,
+  keyName: K,
+  desc: Descriptor,
+  data: V,
+  meta: Meta
+) {
   if (meta === undefined) {
     meta = metaFor(obj);
   }

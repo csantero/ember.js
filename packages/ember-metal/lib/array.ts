@@ -1,8 +1,8 @@
-import { notifyPropertyChange } from './property_events';
-import { eachProxyArrayDidChange, eachProxyArrayWillChange } from './each_proxy';
-import { peekMeta } from './meta';
-import { sendEvent, removeListener, addListener } from './events';
 import { peekCacheFor } from './computed';
+import { eachProxyArrayDidChange, eachProxyArrayWillChange } from './each_proxy';
+import { sendEvent, removeListener, addListener } from './events';
+import { peekMeta } from './meta';
+import { notifyPropertyChange } from './property_events';
 import { get } from './property_get';
 
 const EMPTY_ARRAY = Object.freeze([]);
@@ -27,7 +27,12 @@ const CHUNK_SIZE = 60000;
 
 // To avoid overflowing the stack, we splice up to CHUNK_SIZE items at a time.
 // See https://code.google.com/p/chromium/issues/detail?id=56588 for more details.
-export function replaceInNativeArray(array, start, deleteCount, items) {
+export function replaceInNativeArray<T>(
+  array: T[],
+  start: number,
+  deleteCount: number,
+  items: ReadonlyArray<T>
+) {
   arrayContentWillChange(array, start, deleteCount, items.length);
 
   if (items.length <= CHUNK_SIZE) {
@@ -44,7 +49,7 @@ export function replaceInNativeArray(array, start, deleteCount, items) {
   arrayContentDidChange(array, start, deleteCount, items.length);
 }
 
-function arrayObserversHelper(obj, target, opts, operation, notify) {
+function arrayObserversHelper(obj: object, target: object, opts, operation, notify) {
   let willChange = (opts && opts.willChange) || 'arrayWillChange';
   let didChange = (opts && opts.didChange) || 'arrayDidChange';
   let hasObservers = get(obj, 'hasArrayObservers');

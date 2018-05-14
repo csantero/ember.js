@@ -1,8 +1,13 @@
+import { EMBER_LIBRARIES_ISREGISTERED } from '@ember/canary-features';
 import { debug, warn } from '@ember/debug';
 import { DEBUG } from '@glimmer/env';
-import { get } from './property_get';
-import { EMBER_LIBRARIES_ISREGISTERED } from '@ember/canary-features';
 import VERSION from 'ember/version';
+import { get } from './property_get';
+
+export interface Lib {
+  name: string;
+  version: string;
+}
 
 /**
  @module ember
@@ -17,12 +22,15 @@ import VERSION from 'ember/version';
   @private
 */
 export class Libraries {
+  private _registry: Lib[];
+  private _coreLibIndex: number;
+
   constructor() {
     this._registry = [];
     this._coreLibIndex = 0;
   }
 
-  _getLibraryByName(name) {
+  _getLibraryByName(name: string): Lib | undefined {
     let libs = this._registry;
     let count = libs.length;
 
@@ -31,9 +39,10 @@ export class Libraries {
         return libs[i];
       }
     }
+    return undefined;
   }
 
-  register(name, version, isCoreLibrary) {
+  register(name: string, version: string, isCoreLibrary: boolean) {
     let index = this._registry.length;
 
     if (!this._getLibraryByName(name)) {
@@ -48,11 +57,11 @@ export class Libraries {
     }
   }
 
-  registerCoreLibrary(name, version) {
+  registerCoreLibrary(name: string, version: string) {
     this.register(name, version, true);
   }
 
-  deRegister(name) {
+  deRegister(name: string) {
     let lib = this._getLibraryByName(name);
     let index;
 
@@ -64,7 +73,7 @@ export class Libraries {
 }
 
 if (EMBER_LIBRARIES_ISREGISTERED) {
-  Libraries.prototype.isRegistered = function(name) {
+  Libraries.prototype.isRegistered = function(name: string) {
     return !!this._getLibraryByName(name);
   };
 }

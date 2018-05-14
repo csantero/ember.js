@@ -10,8 +10,13 @@
  save that for dispatch time, if an event actually happens.
  */
 
+export interface IMeta {
+  _listeners: any[] | undefined;
+  _listenersFinalized: boolean;
+}
+
 export const protoMethods = {
-  addToListeners(eventName, target, method, once) {
+  addToListeners(this: IMeta, eventName: string, target, method, once) {
     if (this._listeners === undefined) {
       this._listeners = [];
     }
@@ -68,7 +73,7 @@ export const protoMethods = {
     }
   },
 
-  matchingListeners(eventName) {
+  matchingListeners(eventName: string) {
     let pointer = this;
     let result;
     while (pointer !== undefined) {
@@ -90,7 +95,7 @@ export const protoMethods = {
   },
 };
 
-function pushUniqueListener(destination, source, index) {
+function pushUniqueListener(destination: any[], source: any[], index: number) {
   let target = source[index + 1];
   let method = source[index + 2];
   for (let destinationIndex = 0; destinationIndex < destination.length; destinationIndex += 3) {

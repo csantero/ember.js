@@ -1,10 +1,10 @@
 import { get } from './property_get';
-import { descriptorFor, meta as metaFor, peekMeta } from './meta';
+import { descriptorFor, meta as metaFor, peekMeta, Meta } from './meta';
 import { watchKey, unwatchKey } from './watch_key';
 import { getCachedValueFor } from './computed';
 import { eachProxyFor } from './each_proxy';
 
-function isObject(obj) {
+function isObject(obj: any) {
   return typeof obj === 'object' && obj !== null;
 }
 
@@ -14,6 +14,10 @@ function isVolatile(obj, keyName, meta) {
 }
 
 class ChainWatchers {
+  chains: {
+    [key: string]: ChainNode[];
+  };
+
   constructor() {
     // chain nodes that reference a key in this obj by key
     // we only create ChainWatchers when we are going to add them
@@ -21,7 +25,7 @@ class ChainWatchers {
     this.chains = Object.create(null);
   }
 
-  add(key, node) {
+  add(key: string, node: ChainNode): void {
     let nodes = this.chains[key];
     if (nodes === undefined) {
       this.chains[key] = [node];
@@ -30,7 +34,7 @@ class ChainWatchers {
     }
   }
 
-  remove(key, node) {
+  remove(key: string, node: ChainNode): void {
     let nodes = this.chains[key];
     if (nodes !== undefined) {
       for (let i = 0; i < nodes.length; i++) {
@@ -42,7 +46,7 @@ class ChainWatchers {
     }
   }
 
-  has(key, node) {
+  has(key: string, node: ChainNode): boolean {
     let nodes = this.chains[key];
     if (nodes !== undefined) {
       for (let i = 0; i < nodes.length; i++) {
@@ -54,13 +58,13 @@ class ChainWatchers {
     return false;
   }
 
-  revalidateAll() {
+  revalidateAll(): void {
     for (let key in this.chains) {
       this.notify(key, true, undefined);
     }
   }
 
-  revalidate(key) {
+  revalidate(key: string): void {
     this.notify(key, true, undefined);
   }
 
@@ -69,7 +73,7 @@ class ChainWatchers {
   // callback: function that will be called with the object and path that
   //           will be/are invalidated by this key change, depending on
   //           whether the revalidate flag is passed
-  notify(key, revalidate, callback) {
+  notify(key: string, revalidate, callback) {
     let nodes = this.chains[key];
     if (nodes === undefined || nodes.length === 0) {
       return;
@@ -106,13 +110,13 @@ function makeChainNode(obj) {
   return new ChainNode(null, null, obj);
 }
 
-function addChainWatcher(obj, keyName, node) {
+function addChainWatcher(obj: any, keyName: string, node: ChainNode) {
   let m = metaFor(obj);
   m.writableChainWatchers(makeChainWatcher).add(keyName, node);
   watchKey(obj, keyName, m);
 }
 
-function removeChainWatcher(obj, keyName, node, _meta) {
+function removeChainWatcher(obj: any, keyName: string, node: ChainNode, _meta?: any) {
   if (!isObject(obj)) {
     return;
   }
@@ -135,7 +139,16 @@ function removeChainWatcher(obj, keyName, node, _meta) {
 // value for the key then the node won't actually watch it. For a root node
 // pass null for parent and key and object for value.
 class ChainNode {
-  constructor(parent, key, value) {
+  private _parent: ChainNode | null;
+  private _key: string;
+  private _chains: undefined;
+  private _object: undefined;
+  private _value: any;
+  private _paths: { [key: string]: any } | undefined;
+  private _isWatching: boolean;
+  public count: number;
+
+  constructor(parent: ChainNode | null, key: string, value: any) {
     this._parent = parent;
     this._key = key;
 
@@ -154,7 +167,7 @@ class ChainNode {
     // the observer on it)
     let isWatching = (this._isWatching = value === undefined);
     if (isWatching) {
-      let obj = parent.value();
+      let obj = parent!.value();
 
       if (!isObject(obj)) {
         return;
@@ -168,7 +181,7 @@ class ChainNode {
 
   value() {
     if (this._value === undefined && this._isWatching) {
-      let obj = this._parent.value();
+      let obj = this._parent!.value();
       this._value = lazyGet(obj, this._key);
     }
     return this._value;
@@ -182,7 +195,7 @@ class ChainNode {
   }
 
   // copies a top level object only
-  copy(obj) {
+  copy(obj: any) {
     let ret = makeChainNode(obj);
     let paths = this._paths;
     if (paths !== undefined) {
@@ -198,7 +211,7 @@ class ChainNode {
 
   // called on the root node of a chain to setup watchers on the specified
   // path.
-  add(path) {
+  add(path: string) {
     let paths = this._paths || (this._paths = {});
     paths[path] = (paths[path] || 0) + 1;
 
@@ -208,7 +221,7 @@ class ChainNode {
 
   // called on the root node of a chain to teardown watcher on the specified
   // path
-  remove(path) {
+  remove(path: string) {
     let paths = this._paths;
     if (paths === undefined) {
       return;
@@ -242,7 +255,7 @@ class ChainNode {
     }
   }
 
-  unchain(key, tails) {
+  unchain(key: string, tails: any[]) {
     let chains = this._chains;
     let node = chains[key];
 
@@ -259,7 +272,7 @@ class ChainNode {
     }
   }
 
-  notify(revalidate, affected) {
+  notify(revalidate, affected): void {
     if (revalidate && this._isWatching) {
       let parentValue = this._parent.value();
 
@@ -329,7 +342,7 @@ function lazyGet(obj, key) {
   }
 }
 
-function finishChains(meta) {
+function finishChains(meta: Meta) {
   // finish any current chains node watchers that reference obj
   let chainWatchers = meta.readableChainWatchers();
   if (chainWatchers !== undefined) {

@@ -1,11 +1,22 @@
-import { lookupDescriptor, symbol, toString } from 'ember-utils';
-import { protoMethods as listenerMethods } from './meta_listeners';
 import { assert } from '@ember/debug';
 import { DEBUG } from '@glimmer/env';
-import { removeChainWatcher } from './chains';
 import { ENV } from 'ember-environment';
+import { lookupDescriptor, symbol, toString } from 'ember-utils';
+import { removeChainWatcher } from './chains';
+import { IMeta, protoMethods as listenerMethods } from './meta_listeners';
 
-let counters;
+export interface Counters {
+  peekCalls: number;
+  peekParentCalls: number;
+  peekPrototypeWalks: number;
+  setCalls: number;
+  deleteCalls: number;
+  metaCalls: number;
+  metaInstantiated: number;
+}
+
+let counters: Counters;
+
 if (DEBUG) {
   counters = {
     peekCalls: 0,
@@ -31,8 +42,26 @@ const META_DESTROYED = 1 << 3;
 
 const NODE_STACK = [];
 
-export class Meta {
-  constructor(obj, parentMeta) {
+export class Meta implements IMeta {
+  _listeners: any[] | undefined;
+  _listenersFinalized: boolean;
+  _values: undefined;
+  _descriptors: undefined;
+  _watching: undefined;
+  _mixins: undefined;
+  _bindings: undefined;
+  _deps: undefined;
+  _chainWatchers: undefined;
+  _chains: undefined;
+  _tag: undefined;
+  _tags: undefined;
+  _flags: number;
+  _counters!: Counters;
+  proto: any;
+  parent: Meta | null;
+  source: any;
+
+  constructor(obj: any, parentMeta: Meta | null) {
     if (DEBUG) {
       counters.metaInstantiated++;
       this._values = undefined;
@@ -70,7 +99,7 @@ export class Meta {
     this._listenersFinalized = false;
   }
 
-  isInitialized(obj) {
+  isInitialized(obj: any) {
     return this.proto !== obj;
   }
 
@@ -142,19 +171,19 @@ export class Meta {
     this._flags |= META_DESTROYED;
   }
 
-  _hasFlag(flag) {
+  _hasFlag(flag: number) {
     return (this._flags & flag) === flag;
   }
 
-  _getOrCreateOwnMap(key) {
+  _getOrCreateOwnMap(key: string) {
     return this[key] || (this[key] = Object.create(null));
   }
 
-  _getOrCreateOwnSet(key) {
+  _getOrCreateOwnSet(key: string) {
     return this[key] || (this[key] = new Set());
   }
 
-  _getInherited(key) {
+  _getInherited(key: string) {
     let pointer = this;
     while (pointer !== undefined) {
       let map = pointer[key];
@@ -165,7 +194,7 @@ export class Meta {
     }
   }
 
-  _findInherited(key, subkey) {
+  _findInherited(key: string, subkey: string) {
     let pointer = this;
     while (pointer !== undefined) {
       let map = pointer[key];
@@ -339,7 +368,7 @@ export class Meta {
     return this._getInherited('_chains');
   }
 
-  writeWatching(subkey, value) {
+  writeWatching(subkey: string, value: any) {
     assert(
       this.isMetaDestroyed() &&
         `Cannot update watchers for \`${subkey}\` on \`${toString(
@@ -568,7 +597,7 @@ export function setMeta(obj, meta) {
   metaStore.set(obj, meta);
 }
 
-export function peekMeta(obj) {
+export function peekMeta(obj: object) {
   assert('Cannot call `peekMeta` on null', obj !== null);
   assert('Cannot call `peekMeta` on undefined', obj !== undefined);
   assert(
@@ -605,7 +634,7 @@ export function peekMeta(obj) {
   @return {void}
   @private
 */
-export function deleteMeta(obj) {
+export function deleteMeta(obj: object) {
   assert('Cannot call `deleteMeta` on null', obj !== null);
   assert('Cannot call `deleteMeta` on undefined', obj !== undefined);
   assert(
@@ -641,7 +670,7 @@ export function deleteMeta(obj) {
     the meta hash, allowing the method to avoid making an unnecessary copy.
   @return {Object} the meta hash for an object
 */
-export function meta(obj) {
+export function meta(obj: object) {
   assert('Cannot call `meta` on null', obj !== null);
   assert('Cannot call `meta` on undefined', obj !== undefined);
   assert(
@@ -682,7 +711,11 @@ if (DEBUG) {
   @return {Descriptor}
   @private
 */
-export function descriptorFor(obj, keyName, _meta) {
+export function descriptorFor<T extends object, K extends keyof T>(
+  obj: T,
+  keyName: K,
+  _meta: Meta
+) {
   assert('Cannot call `descriptorFor` on null', obj !== null);
   assert('Cannot call `descriptorFor` on undefined', obj !== undefined);
   assert(
@@ -705,7 +738,7 @@ export function descriptorFor(obj, keyName, _meta) {
   @return {boolean}
   @private
 */
-export function isDescriptor(possibleDesc) {
+export function isDescriptor(possibleDesc: any): boolean {
   return possibleDesc !== null && typeof possibleDesc === 'object' && possibleDesc.isDescriptor;
 }
 

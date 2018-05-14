@@ -1,14 +1,14 @@
 /**
 @module @ember/object
 */
-import { DEBUG } from '@glimmer/env';
-import { assert, deprecate } from '@ember/debug';
-import { HAS_NATIVE_PROXY, symbol } from 'ember-utils';
 import { EMBER_METAL_TRACKED_PROPERTIES } from '@ember/canary-features';
+import { assert, deprecate } from '@ember/debug';
+import { DEBUG } from '@glimmer/env';
+import { HAS_NATIVE_PROXY, symbol } from 'ember-utils';
+import { descriptorFor, isDescriptor } from './meta';
 import { isPath } from './path_cache';
-import { isDescriptor, descriptorFor } from './meta';
-import { getCurrentTracker } from './tracked';
 import { tagForProperty } from './tags';
+import { getCurrentTracker } from './tracked';
 
 const ALLOWABLE_TYPES = {
   object: true,
@@ -18,7 +18,7 @@ const ALLOWABLE_TYPES = {
 
 export const PROXY_CONTENT = symbol('PROXY_CONTENT');
 
-export let getPossibleMandatoryProxyValue;
+export let getPossibleMandatoryProxyValue: (obj: object, keyName: string) => any;
 
 if (DEBUG && HAS_NATIVE_PROXY) {
   getPossibleMandatoryProxyValue = function getPossibleMandatoryProxyValue(obj, keyName) {
@@ -30,6 +30,10 @@ if (DEBUG && HAS_NATIVE_PROXY) {
       return Reflect.get(content, keyName, obj);
     }
   };
+}
+
+interface HasUnknownProperty {
+  unknownProperty(key: string): any;
 }
 
 // ..........................................................
@@ -70,7 +74,7 @@ if (DEBUG && HAS_NATIVE_PROXY) {
   @return {Object} the property value or `null`.
   @public
 */
-export function get(obj, keyName) {
+export function get<T extends object, K extends keyof T>(obj: T, keyName: K): T[K] {
   assert(
     `Get must be called with two arguments; an object and a property key`,
     arguments.length === 2
@@ -141,15 +145,19 @@ export function get(obj, keyName) {
     if (isPath(keyName)) {
       return _getPath(obj, keyName);
     }
-    if (isObject && !(keyName in obj) && typeof obj.unknownProperty === 'function') {
-      return obj.unknownProperty(keyName);
+    if (
+      isObject &&
+      !(keyName in obj) &&
+      typeof (obj as HasUnknownProperty).unknownProperty === 'function'
+    ) {
+      return (obj as HasUnknownProperty).unknownProperty(keyName);
     }
   }
   return value;
 }
 
-export function _getPath(root, path) {
-  let obj = root;
+export function _getPath(root: any, path: string) {
+  let obj: any = root;
   let parts = path.split('.');
 
   for (let i = 0; i < parts.length; i++) {
@@ -167,7 +175,7 @@ export function _getPath(root, path) {
   return obj;
 }
 
-function isGettable(obj) {
+function isGettable(obj: any) {
   return obj !== undefined && obj !== null && ALLOWABLE_TYPES[typeof obj];
 }
 
@@ -189,7 +197,11 @@ function isGettable(obj) {
   @return {Object} The property value or the defaultValue.
   @public
 */
-export function getWithDefault(root, key, defaultValue) {
+export function getWithDefault<T extends object, K extends keyof T>(
+  root: T,
+  key: K,
+  defaultValue: T[K]
+): T[K] {
   let value = get(root, key);
 
   if (value === undefined) {
