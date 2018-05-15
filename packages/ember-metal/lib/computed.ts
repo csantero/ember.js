@@ -1,15 +1,15 @@
-import { inspect } from 'ember-utils';
+import { EMBER_METAL_TRACKED_PROPERTIES } from '@ember/canary-features';
 import { assert, warn } from '@ember/debug';
 import EmberError from '@ember/error';
-import { set } from './property_set';
-import { meta as metaFor, peekMeta } from './meta';
-import { EMBER_METAL_TRACKED_PROPERTIES } from '@ember/canary-features';
-import expandProperties from './expand_properties';
-import { Descriptor, defineProperty } from './properties';
-import { notifyPropertyChange } from './property_events';
+import { inspect } from 'ember-utils';
 import { addDependentKeys, removeDependentKeys } from './dependent_keys';
-import { getCurrentTracker, setCurrentTracker } from './tracked';
+import expandProperties from './expand_properties';
+import { meta as metaFor, peekMeta } from './meta';
+import { defineProperty, Descriptor } from './properties';
+import { notifyPropertyChange } from './property_events';
+import { set } from './property_set';
 import { tagForProperty, update } from './tags';
+import { getCurrentTracker, setCurrentTracker } from './tracked';
 
 /**
 @module @ember/object
@@ -18,6 +18,14 @@ import { tagForProperty, update } from './tags';
 const DEEP_EACH_REGEX = /\.@each\.[^.]+\./;
 
 function noop() {}
+
+type ComputedPropertyGetterFunction<T> = (this: any, key: string) => T;
+type ComputedPropertyGetters<T> = { [K in keyof T]: ComputedProperty<T[K], any> | T[K] };
+type ComputedPropertySetters<T> = { [K in keyof T]: ComputedProperty<any, T[K]> | T[K] };
+
+export interface ComputedPropertyConfig {
+  get
+}
 
 /**
   A computed property transforms an object literal with object's accessor function(s) into a property.
@@ -128,8 +136,8 @@ function noop() {}
   @class ComputedProperty
   @public
 */
-class ComputedProperty extends Descriptor {
-  constructor(config, opts) {
+class ComputedProperty<Get, Set = Get> extends Descriptor {
+  constructor(config: ComputedPropertyConfig, opts) {
     super();
     let hasGetterOnly = typeof config === 'function';
     if (hasGetterOnly) {
